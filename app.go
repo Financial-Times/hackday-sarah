@@ -5,7 +5,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/Financial-Times/neo-utils-go/neoutils"
 	"github.com/gorilla/mux"
 )
 
@@ -21,13 +23,36 @@ func main() {
 		log.Fatal("$PORT must be set")
 	}
 
-	och := organisationContentHandler{newOrganisationContentService()}
+	neo4jURL := os.Getenv("NEO4J_URL")
+
+	if neo4jURL == "" {
+		log.Fatal("$NEO4J_URL must be set")
+	}
+
+	conf := neoutils.ConnectionConfig{
+		BatchSize:     1024,
+		Transactional: false,
+		HTTPClient: &http.Client{
+			Transport: &http.Transport{
+				MaxIdleConnsPerHost: 100,
+			},
+			Timeout: 1 * time.Minute,
+		},
+		BackgroundConnect: true,
+	}
+	db, err := neoutils.Connect(neo4jURL, &conf)
+
+	if err != nil {
+		log.Fatalf("Error connecting to neo4j %s", err)
+	}
+
+	och := organisationContentHandler{newOrganisationContentService(db)}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/organisations/{uuid}", och.getContentRelatedToOrganisation).Methods("GET")
 	http.Handle("/", r)
 
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Fatal(http.ListenAndServe("localhost:"+port, nil))
 }
 
 type organisationContentHandler struct {
@@ -38,7 +63,12 @@ func (och *organisationContentHandler) getContentRelatedToOrganisation(writer ht
 	vars := mux.Vars(req)
 	uuid := vars["uuid"]
 
-	contentForRequestedOrganisation, found := och.ocs.getContentByOrganisationUUID(uuid)
+	contentForRequestedOrganisation, found, err := och.ocs.getContentByOrganisationUUID(uuid)
+
+	if err != nil {
+		writer.WriteHeader(http.StatusServiceUnavailable)
+	}
+
 	if !found {
 		writer.WriteHeader(http.StatusNotFound)
 		return

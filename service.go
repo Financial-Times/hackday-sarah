@@ -1,30 +1,50 @@
 package main
 
+import (
+	"time"
+
+	"github.com/Financial-Times/neo-utils-go/neoutils"
+	"github.com/jmcvetta/neoism"
+)
+
 type organisationContentService interface {
-	getContentByOrganisationUUID(uuid string) (organisation, bool)
+	getContentByOrganisationUUID(uuid string) (organisation, bool, error)
 }
 
 type simpleOrganisationContentService struct {
-	organisations map[string]organisation
+	conn neoutils.NeoConnection
 }
 
-func newOrganisationContentService() simpleOrganisationContentService {
-	articlesForOrg1 := []content{}
-	articlesForOrg1 = append(articlesForOrg1, content{Title: "Test title"})
+func newOrganisationContentService(conn neoutils.NeoConnection) simpleOrganisationContentService {
+	return simpleOrganisationContentService{conn}
+}
 
-	Org1 := organisation{
-		Stories: articlesForOrg1,
+func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid string) (organisation, bool, error) {
+
+	results := []organisation{}
+
+	now := time.Now()
+
+	oneMonthAgo := now.AddDate(0, -1, 0)
+
+	secondsSinceEpoch := oneMonthAgo.Unix()
+
+	query := &neoism.CypherQuery{
+		Statement: `
+		MATCH (o:Organisation {uuid:'63472746-1f71-33cc-85ac-a6774cb5b72e'})
+    OPTIONAL MATCH (o)-[:MENTIONS]-(c:Content)
+    WHERE c.publishedDateEpoch > {secondsSinceEpoch}
+    WITH o, {Title:c.title} as stories
+    WITH o, collect(stories) as stories
+    RETURN o.prefLabel as Title, stories as Stories`,
+		Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
+		Result:     &results,
 	}
 
-	m := make(map[string]organisation)
+	if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{query}); err != nil {
+		return organisation{}, false, err
+	}
 
-	m["123"] = Org1
+	return results[0], true, nil
 
-	return simpleOrganisationContentService{organisations: m}
-}
-
-func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid string) (organisation, bool) {
-
-	contentForRequestedOrganisation, found := ocs.organisations[uuid]
-	return contentForRequestedOrganisation, found
 }
