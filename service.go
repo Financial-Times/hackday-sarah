@@ -31,7 +31,7 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 
 	query := &neoism.CypherQuery{
 		Statement: `
-		MATCH (o:Organisation {uuid:'63472746-1f71-33cc-85ac-a6774cb5b72e'})
+		MATCH (o:Organisation {uuid:{uuid}})
     OPTIONAL MATCH (o)-[:MENTIONS]-(c:Content)
     WHERE c.publishedDateEpoch > {secondsSinceEpoch}
     WITH o, {Title:c.title} as stories
