@@ -6,7 +6,7 @@ type content struct {
 	Standfirst    string `json:"standfirst"`
 	Byline        string `json:"byline"`
 	PublishedDate string `json:"publishedDate"`
-	ImageUrl      string `json:"image"`
+	ImageURL      string `json:"image"`
 	Tags          []tag  `json:"tags"`
 }
 type organisation struct {

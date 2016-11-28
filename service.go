@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/Financial-Times/neo-utils-go/neoutils"
@@ -43,6 +45,10 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 
 	if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{query}); err != nil {
 		return organisation{}, false, err
+	} else if len(results) == 0 {
+		errMsg := fmt.Sprintf("No organisation found for uuid:%s", uuid)
+		log.Print(errMsg)
+		return organisation{}, false, nil
 	}
 
 	return results[0], true, nil
