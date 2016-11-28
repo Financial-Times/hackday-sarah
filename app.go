@@ -4,18 +4,25 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 )
 
 func main() {
+	port := os.Getenv("PORT")
+
+	if port == "" {
+		log.Fatal("$PORT must be set")
+	}
+
 	och := organisationContentHandler{newOrganisationContentService()}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/organisations/{uuid}", och.getContentRelatedToOrganisation).Methods("GET")
 	http.Handle("/", r)
 
-	log.Fatal(http.ListenAndServe("localhost:8000", nil))
+	log.Fatal(http.ListenAndServe("localhost:"+port, nil))
 }
 
 type organisationContentHandler struct {
