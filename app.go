@@ -24,7 +24,7 @@ func main() {
 	r.HandleFunc("/organisations/{uuid}", och.getContentRelatedToOrganisation).Methods("GET")
 	http.Handle("/", r)
 
-	log.Fatal(http.ListenAndServe("localhost:"+port, nil))
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
 type organisationContentHandler struct {
