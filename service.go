@@ -27,9 +27,9 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 
 	now := time.Now()
 
-	oneMonthAgo := now.AddDate(0, -1, 0)
+	threeMonthsAgo := now.AddDate(0, -3, 0)
 
-	secondsSinceEpoch := oneMonthAgo.Unix()
+	secondsSinceEpoch := threeMonthsAgo.Unix()
 
 	query := &neoism.CypherQuery{
 		Statement: `
@@ -51,6 +51,29 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		return organisation{}, false, nil
 	}
 
-	return results[0], true, nil
+	org := results[0]
+
+	subsidContent := []content{}
+
+	subsidQuery := &neoism.CypherQuery{
+		Statement: `
+		MATCH (n:Organisation {uuid:{uuid}})-[:SUB_ORGANISATION_OF]-(s:Organisation)-[:MENTIONS]-(c:Content)
+		WHERE c.publishedDateEpoch > {secondsSinceEpoch}
+		RETURN c.title as Title, c.uuid as ID`,
+		Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
+		Result:     &subsidContent,
+	}
+
+	log.Printf("SubsidContent=%v", subsidContent)
+
+	if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{subsidQuery}); err != nil {
+		return organisation{}, false, err
+	}
+
+	if len(subsidContent) > 0 {
+		org.Stories = append(org.Stories, subsidContent...)
+	}
+
+	return org, true, nil
 
 }

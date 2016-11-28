@@ -1,14 +1,14 @@
 // Find content for orgs in the same industry classification
-MATCH (n:Organisation {uuid:'bc8cd91b-09bf-3756-b235-bd9cb07aa6e9'})--(i:IndustryClassification)--(comp:Organisation)--(c:Content)
+MATCH (n:Organisation {uuid:'63472746-1f71-33cc-85ac-a6774cb5b72e'})--(i:IndustryClassification)--(comp:Organisation)--(c:Content)
 where c.publishedDateEpoch > 1477653646 RETURN comp.prefLabel, c.uuid, c.title, c.publishedDate
 ORDER BY c.publishedDate
 
 // Find content for sub orgs TODO or parent orgs
-MATCH (n:Organisation {uuid:'bc8cd91b-09bf-3756-b235-bd9cb07aa6e9'})-[:SUB_ORGANISATION_OF]-(s:Organisation)-[:MENTIONS]-(c:Content)
+MATCH (n:Organisation {uuid:'63472746-1f71-33cc-85ac-a6774cb5b72e'})-[:SUB_ORGANISATION_OF]-(s:Organisation)-[:MENTIONS]-(c:Content)
 WHERE c.publishedDateEpoch > 1464780046 RETURN *
 
 // Find content for the org itself
-MATCH (n:Organisation {uuid:'bc8cd91b-09bf-3756-b235-bd9cb07aa6e9'})-[:MENTIONS]-(c:Content)
+MATCH (n:Organisation {uuid:'63472746-1f71-33cc-85ac-a6774cb5b72e'})-[:MENTIONS]-(c:Content)
 WHERE c.publishedDateEpoch > 1464780046 RETURN *
 
 // The complex query from public organisations api
@@ -38,10 +38,22 @@ WITH pm, ind, parent, sub, lei, fi, o
 return {o:o, lei:lei, parent:parent, ind:ind, sub:sub, pm:pm, fi:fi} as rs
 
 
-
-MATCH (o:Organisation {uuid:'63472746-1f71-33cc-85ac-a6774cb5b72e'})
+MATCH (o:Organisation {uuid:{uuid}})
 OPTIONAL MATCH (o)-[:MENTIONS]-(c:Content)
-WITH o, {Title:c.title, Byline:c.byline} as Stories
-WITH o. collect(Stories) as Stories
+WHERE c.publishedDateEpoch > {secondsSinceEpoch}
+WITH o, {Title:c.title} as stories
+WITH o, collect(stories) as stories
+RETURN o.prefLabel as Title, stories as Stories
+
+// REALLY SLOW!
+MATCH (n:Organisation {uuid:'63472746-1f71-33cc-85ac-a6774cb5b72e'})
+OPTIONAL MATCH (o)-[:SUB_ORGANISATION_OF]-(s:Organisation)
+OPTIONAL MATCH (s)-[:MENTIONS]-(c:Content)
 WHERE c.publishedDateEpoch > 1464780046
-RETURN {o:Title, Stories}
+WITH {Title:c.title} as stories
+RETURN collect(stories) as content
+
+MATCH (n:Organisation {uuid:'63472746-1f71-33cc-85ac-a6774cb5b72e'})-[:SUB_ORGANISATION_OF]-(s:Organisation)-[:MENTIONS]-(c:Content)
+WHERE c.publishedDateEpoch > 1464780046
+WITH {Title:c.title} as stories
+RETURN collect(stories) as content

@@ -25,6 +25,8 @@ func main() {
 
 	neo4jURL := os.Getenv("NEO4J_URL")
 
+	log.Printf("neo4jURL=%s", neo4jURL)
+
 	if neo4jURL == "" {
 		log.Fatal("$NEO4J_URL must be set")
 	}
