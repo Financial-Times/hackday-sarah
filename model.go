@@ -10,9 +10,13 @@ type content struct {
 	Tags          []tag  `json:"tags"`
 }
 type organisation struct {
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Stories     []content `json:"stories"`
+	ID                     string    `json:"id"`
+	Title                  string    `json:"title"`
+	Description            string    `json:"description"`
+	IndustryClassification string    `json:"industryClassification"`
+	Stories                []content `json:"stories"`
+	SubsidStories          []content `json:"subsidiaryStories"`
+	IndClassStories        []content `json:"industryClassificationStories"`
 }
 type tag struct {
 	URL   string `json:"url"`

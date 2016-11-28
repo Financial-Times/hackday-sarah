@@ -62,3 +62,11 @@ WHERE c.publishedDateEpoch > 1477653646
 RETURN DISTINCT c.title as Title, c.uuid as ID, c.publishedDate as PublishedDate
 ORDER BY PublishedDate DESC
 LIMIT(10)
+
+
+MATCH (o:Organisation {uuid:'63472746-1f71-33cc-85ac-a6774cb5b72e'})--(i:IndustryClassification)
+OPTIONAL MATCH (o)-[:MENTIONS]-(c:Content)
+WHERE c.publishedDateEpoch > 1477653646
+WITH o, i, CASE WHEN c IS NOT NULL THEN {Title:c.title, ID:c.uuid} as stories ELSE NULL END
+WITH o, i, collect(stories) as stories
+RETURN o.prefLabel as Title, i.prefLabel as IndustryClassification, o.uuid as ID, stories as Stories

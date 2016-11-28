@@ -33,12 +33,12 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 
 	query := &neoism.CypherQuery{
 		Statement: `
-		MATCH (o:Organisation {uuid:{uuid}})
+		MATCH (o:Organisation {uuid:{uuid}})--(i:IndustryClassification)
     OPTIONAL MATCH (o)-[:MENTIONS]-(c:Content)
     WHERE c.publishedDateEpoch > {secondsSinceEpoch}
-    WITH o, {Title:c.title, ID:c.uuid} as stories
-    WITH o, collect(stories) as stories
-    RETURN o.prefLabel as Title, stories as Stories, o.uuid as ID`,
+    WITH o, i, {Title:c.title, ID:c.uuid} as stories
+    WITH o, i, collect(stories) as stories
+    RETURN o.prefLabel as Title, i.prefLabel as IndustryClassification, stories as Stories, o.uuid as ID`,
 		Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
 		Result:     &results,
 	}
@@ -51,7 +51,15 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		return organisation{}, false, nil
 	}
 
-	org := results[0]
+	org := organisation{
+		Title: results[0].Title,
+		IndustryClassification: results[0].IndustryClassification,
+		ID: results[0].ID,
+	}
+
+	if len(results[0].Stories) > 0 && results[0].Stories[0].ID != "" {
+		org.Stories = results[0].Stories
+	}
 
 	subsidContent := []content{}
 
@@ -59,41 +67,45 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		Statement: `
 		MATCH (n:Organisation {uuid:{uuid}})-[:SUB_ORGANISATION_OF]-(s:Organisation)-[:MENTIONS]-(c:Content)
 		WHERE c.publishedDateEpoch > {secondsSinceEpoch}
-		RETURN c.title as Title, c.uuid as ID`,
+		WITH c, {Label:s.prefLabel} as Tags
+		WITH c, collect(Tags) as Tags
+		RETURN c.title as Title, c.uuid as ID, Tags as Tags, c.publishedDate as PublishedDate`,
 		Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
 		Result:     &subsidContent,
 	}
-
-	log.Printf("SubsidContent=%v", subsidContent)
 
 	if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{subsidQuery}); err != nil {
 		return organisation{}, false, err
 	}
 
+	log.Printf("Subsids: %v", subsidContent)
+
 	if len(subsidContent) > 0 {
-		org.Stories = append(org.Stories, subsidContent...)
+		org.SubsidStories = subsidContent
 	}
 
 	indClassContent := []content{}
 
 	indClassQuery := &neoism.CypherQuery{
-		Statement: `MATCH (n:Organisation {uuid:{uuid}})--(i:IndustryClassification)--(comp:Organisation)--(c:Content)
+		Statement: `MATCH (n:Organisation {uuid:{uuid}})--(i:IndustryClassification)--(comp:Organisation)-[m:MENTIONS]-(c:Content)
 		WHERE c.publishedDateEpoch > {secondsSinceEpoch}
-		RETURN DISTINCT c.title as Title, c.uuid as ID, c.publishedDate as PublishedDate
+		WITH c, {Label:comp.prefLabel} as Tags
+		WITH c, collect(Tags) as Tags
+		RETURN DISTINCT c.title as Title, c.uuid as ID, Tags as Tags, c.publishedDate as PublishedDate
 		ORDER BY PublishedDate DESC
 		LIMIT(10)`,
 		Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
 		Result:     &indClassContent,
 	}
 
-	log.Printf("indClassContent=%v", indClassContent)
-
 	if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{indClassQuery}); err != nil {
 		return organisation{}, false, err
 	}
 
+	log.Printf("IndClass: %v", indClassContent)
+
 	if len(indClassContent) > 0 {
-		org.Stories = append(org.Stories, indClassContent...)
+		org.IndClassStories = indClassContent
 	}
 
 	return org, true, nil
