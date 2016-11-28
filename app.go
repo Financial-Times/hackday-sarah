@@ -55,7 +55,7 @@ func main() {
 	r.HandleFunc("/__gtg", och.goodToGo).Methods("GET")
 	http.Handle("/", r)
 
-	log.Fatal(http.ListenAndServe("localhost:"+port, nil))
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
 type organisationContentHandler struct {
