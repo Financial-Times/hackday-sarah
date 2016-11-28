@@ -6,5 +6,9 @@ type content struct {
 	Standfirst        string `json:"standfirst"`
 	Byline            string `json:"byline"`
 	PublishedDate     string `json:"publishedDate"`
-	OrganisationTitle string `json:"organisationTitle"`
+}
+type organisation struct {
+	Title string `json:"title"`
+	Description string `json:"description"`
+	Stories [] content `json:"stories"`
 }

@@ -1,26 +1,30 @@
 package main
 
 type organisationContentService interface {
-	getContentByOrganisationUUID(uuid string) ([]content, bool)
+	getContentByOrganisationUUID(uuid string) (organisation, bool)
 }
 
 type simpleOrganisationContentService struct {
-	articles map[string][]content
+	organisations map[string]organisation
 }
 
 func newOrganisationContentService() simpleOrganisationContentService {
 	articlesForOrg1 := []content{}
 	articlesForOrg1 = append(articlesForOrg1, content{Title: "Test title"})
 
-	m := make(map[string][]content)
+	Org1 := organisation{
+		Stories: articlesForOrg1,
+	}
 
-	m["123"] = articlesForOrg1
+	m := make(map[string]organisation)
 
-	return simpleOrganisationContentService{articles: m}
+	m["123"] = Org1
+
+	return simpleOrganisationContentService{organisations: m}
 }
 
-func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid string) ([]content, bool) {
+func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid string) (organisation, bool) {
 
-	contentForRequestedOrganisation, found := ocs.articles[uuid]
+	contentForRequestedOrganisation, found := ocs.organisations[uuid]
 	return contentForRequestedOrganisation, found
 }
