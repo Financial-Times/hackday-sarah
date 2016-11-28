@@ -25,6 +25,7 @@ func main() {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/organisations/{uuid}", och.getContentRelatedToOrganisation).Methods("GET")
+	r.HandleFunc("/__gtg", och.goodToGo).Methods("GET")
 	http.Handle("/", r)
 
 	log.Fatal(http.ListenAndServe(":"+port, nil))
@@ -46,4 +47,8 @@ func (och *organisationContentHandler) getContentRelatedToOrganisation(writer ht
 	enc := json.NewEncoder(writer)
 	//should have error handling here
 	enc.Encode(contentForRequestedOrganisation)
+}
+
+func (och *organisationContentHandler) goodToGo(writer http.ResponseWriter, req *http.Request) {
+	writer.WriteHeader(http.StatusOK)
 }
