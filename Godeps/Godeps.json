@@ -8,6 +8,10 @@
 			"Rev": "3ac8d094fe1034cd97181f48834dac7df7f42ba5"
 		},
 		{
+			"ImportPath": "github.com/Financial-Times/up-rw-app-api-go/rwapi",
+			"Rev": "c7976a0b575e3cad95ec10ebca53798567b39845"
+		},
+		{
 			"ImportPath": "github.com/Sirupsen/logrus",
 			"Comment": "v0.10.0-36-g08a8a7c",
 			"Rev": "08a8a7c27e3d058a8989316a850daad1c10bf4ab"
