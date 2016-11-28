@@ -36,9 +36,9 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		MATCH (o:Organisation {uuid:{uuid}})
     OPTIONAL MATCH (o)-[:MENTIONS]-(c:Content)
     WHERE c.publishedDateEpoch > {secondsSinceEpoch}
-    WITH o, {Title:c.title} as stories
+    WITH o, {Title:c.title, ID:c.uuid} as stories
     WITH o, collect(stories) as stories
-    RETURN o.prefLabel as Title, stories as Stories`,
+    RETURN o.prefLabel as Title, stories as Stories, o.uuid as ID`,
 		Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
 		Result:     &results,
 	}
