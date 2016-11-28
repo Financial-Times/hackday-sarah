@@ -53,7 +53,12 @@ WHERE c.publishedDateEpoch > 1464780046
 WITH {Title:c.title} as stories
 RETURN collect(stories) as content
 
-MATCH (n:Organisation {uuid:'63472746-1f71-33cc-85ac-a6774cb5b72e'})-[:SUB_ORGANISATION_OF]-(s:Organisation)-[:MENTIONS]-(c:Content)
-WHERE c.publishedDateEpoch > 1464780046
-WITH {Title:c.title} as stories
-RETURN collect(stories) as content
+MATCH (n:Organisation {uuid:{uuid}})-[:SUB_ORGANISATION_OF]-(s:Organisation)-[:MENTIONS]-(c:Content)
+WHERE c.publishedDateEpoch > {secondsSinceEpoch}
+RETURN c.title as Title, c.uuid as ID
+
+MATCH (n:Organisation {uuid:'63472746-1f71-33cc-85ac-a6774cb5b72e'})--(i:IndustryClassification)--(comp:Organisation)--(c:Content)
+WHERE c.publishedDateEpoch > 1477653646
+RETURN DISTINCT c.title as Title, c.uuid as ID, c.publishedDate as PublishedDate
+ORDER BY PublishedDate DESC
+LIMIT(10)

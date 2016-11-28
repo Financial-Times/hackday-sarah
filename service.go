@@ -74,6 +74,28 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		org.Stories = append(org.Stories, subsidContent...)
 	}
 
+	indClassContent := []content{}
+
+	indClassQuery := &neoism.CypherQuery{
+		Statement: `MATCH (n:Organisation {uuid:{uuid}})--(i:IndustryClassification)--(comp:Organisation)--(c:Content)
+		WHERE c.publishedDateEpoch > {secondsSinceEpoch}
+		RETURN DISTINCT c.title as Title, c.uuid as ID, c.publishedDate as PublishedDate
+		ORDER BY PublishedDate DESC
+		LIMIT(10)`,
+		Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
+		Result:     &indClassContent,
+	}
+
+	log.Printf("indClassContent=%v", indClassContent)
+
+	if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{indClassQuery}); err != nil {
+		return organisation{}, false, err
+	}
+
+	if len(indClassContent) > 0 {
+		org.Stories = append(org.Stories, indClassContent...)
+	}
+
 	return org, true, nil
 
 }
