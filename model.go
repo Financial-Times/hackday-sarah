@@ -62,14 +62,14 @@ type enrichedContent struct {
 	Comments        struct {
 		Enabled bool `json:"enabled"`
 	} `json:"comments"`
-	ID        string `json:"id"`
-	MainImage struct {
-		ID string `json:"id"`
-	} `json:"mainImage"`
-	PrefLabel     string `json:"prefLabel"`
-	PublishedDate string `json:"publishedDate"`
-	RequestURL    string `json:"requestUrl"`
-	Standfirst    string `json:"standfirst"`
+	ID            string    `json:"id"`
+	MainImage     mainImage `json:"mainImage"`
+	Members       []member  `json:"members"`
+	BinaryURL     string    `json:"binaryUrl"`
+	PrefLabel     string    `json:"prefLabel"`
+	PublishedDate string    `json:"publishedDate"`
+	RequestURL    string    `json:"requestUrl"`
+	Standfirst    string    `json:"standfirst"`
 	Standout      struct {
 		EditorsChoice bool `json:"editorsChoice"`
 		Exclusive     bool `json:"exclusive"`
@@ -78,4 +78,12 @@ type enrichedContent struct {
 	Title  string   `json:"title"`
 	Types  []string `json:"types"`
 	WebURL string   `json:"webUrl"`
+}
+
+type member struct {
+	ID string `json:"id"`
+}
+
+type mainImage struct {
+	ID string `json:"id"`
 }

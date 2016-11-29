@@ -71,7 +71,7 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		org.Stories = results[0].Stories
 	}
 
-	for i,story := range org.Stories {
+	for i, story := range org.Stories {
 		org.Stories[i] = ocs.enrichContent(story)
 	}
 
@@ -186,8 +186,32 @@ func getContentFromRecommendedReads(uuid string, recReadsURL string) []content {
 
 }
 
-func (ocs simpleOrganisationContentService) enrichContent(story content) content{
+func (ocs simpleOrganisationContentService) enrichContent(story content) content {
 	reqURL := fmt.Sprintf("http://api.ft.com/enrichedcontent/%s", story.ID)
+
+	enriched := ocs.getEnrichedContent(reqURL)
+
+	log.Printf("Standfirst=%s", enriched.Standfirst)
+
+	story.Standfirst = enriched.Standfirst
+
+	// get the image
+	if enriched.MainImage.ID != "" {
+		log.Printf("ImageSet ID=%s", enriched.MainImage.ID)
+		imageSet := ocs.getEnrichedContent(enriched.MainImage.ID)
+
+		members := imageSet.Members
+
+		log.Printf("ImageSet ID=%s", members[0].ID)
+		image := ocs.getEnrichedContent(members[0].ID)
+		log.Printf("BinaryURL=%s", image.BinaryURL)
+		story.ImageURL = image.BinaryURL
+	}
+
+	return story
+}
+
+func (ocs simpleOrganisationContentService) getEnrichedContent(reqURL string) enrichedContent {
 	request, err := http.NewRequest("GET", reqURL, nil)
 	if err != nil {
 		log.Printf("Could not create request for reqURL=%s, err=%s", reqURL, err)
@@ -203,6 +227,5 @@ func (ocs simpleOrganisationContentService) enrichContent(story content) content
 
 	json.NewDecoder(resp.Body).Decode(&enriched)
 
-	story.Standfirst = enriched.Standfirst
-	return story
+	return enriched
 }
