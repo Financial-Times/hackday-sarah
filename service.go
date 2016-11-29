@@ -203,6 +203,13 @@ func (ocs simpleOrganisationContentService) enrichContent(story content) content
 
 	story.Standfirst = enriched.Standfirst
 
+	for _,annotation := range enriched.Annotations {
+		if annotation.Type == "GENRE" && annotation.PrefLabel == "Comment" {
+			commentTag := tag{URL: "https://www.ft.com/opinion", Label: "Comment"}
+			story.Tags = append(story.Tags, commentTag)
+		}
+	}
+
 	// get the image
 	if enriched.MainImage.ID != "" {
 		imageSet := ocs.getEnrichedContent(enriched.MainImage.ID)
