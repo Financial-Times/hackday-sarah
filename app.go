@@ -50,6 +50,14 @@ func main() {
 		log.Fatal("$REC_READS_URL must be set")
 	}
 
+	apiKey := os.Getenv("API_KEY")
+
+	log.Printf("apiKey=%s", apiKey)
+
+	if apiKey == "" {
+		log.Fatal("$API_KEY must be set")
+	}
+
 	conf := neoutils.ConnectionConfig{
 		BatchSize:     1024,
 		Transactional: false,
@@ -67,7 +75,7 @@ func main() {
 		log.Fatalf("Error connecting to neo4j %s", err)
 	}
 
-	och := organisationContentHandler{newOrganisationContentService(db, recReadsURL)}
+	och := organisationContentHandler{newOrganisationContentService(db, recReadsURL, apiKey)}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/organisations/{uuid}", och.getContentRelatedToOrganisation).Methods("GET")

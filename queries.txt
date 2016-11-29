@@ -70,3 +70,7 @@ WHERE c.publishedDateEpoch > 1477653646
 WITH o, i, CASE WHEN c IS NOT NULL THEN {Title:c.title, ID:c.uuid} as stories ELSE NULL END
 WITH o, i, collect(stories) as stories
 RETURN o.prefLabel as Title, i.prefLabel as IndustryClassification, o.uuid as ID, stories as Stories
+
+MATCH (o:Organisation)--(i:FactsetIdentifier{value:'05MR5B-E'})
+OPTIONAL MATCH (o)-[:SUB_ORGANISATION_OF]-(s:Organisation)
+return *

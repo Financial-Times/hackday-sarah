@@ -1,8 +1,8 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -19,10 +19,11 @@ type organisationContentService interface {
 type simpleOrganisationContentService struct {
 	conn        neoutils.NeoConnection
 	recReadsURL string
+	apiKey      string
 }
 
-func newOrganisationContentService(conn neoutils.NeoConnection, recReadsURL string) simpleOrganisationContentService {
-	return simpleOrganisationContentService{conn, recReadsURL}
+func newOrganisationContentService(conn neoutils.NeoConnection, recReadsURL string, apiKey string) simpleOrganisationContentService {
+	return simpleOrganisationContentService{conn, recReadsURL, apiKey}
 }
 
 func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid string) (organisation, bool, error) {
@@ -37,7 +38,8 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 
 	query := &neoism.CypherQuery{
 		Statement: `
-		MATCH (o:Organisation {uuid:{uuid}})--(i:IndustryClassification)
+		MATCH (o:Organisation {uuid:{uuid}})
+		OPTIONAL MATCH (o)--(i:IndustryClassification)
     OPTIONAL MATCH (o)-[:MENTIONS]-(c:Content)
     WHERE c.publishedDateEpoch > {secondsSinceEpoch}
     WITH o, i, {Title:c.title, ID:c.uuid, PublishedDate:c.publishedDate} as stories
@@ -88,28 +90,30 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		org.SubsidStories = subsidContent
 	}
 
-	indClassContent := []content{}
+	if org.IndustryClassification != "" {
+		indClassContent := []content{}
 
-	indClassQuery := &neoism.CypherQuery{
-		Statement: `MATCH (n:Organisation {uuid:{uuid}})--(i:IndustryClassification)--(comp:Organisation)-[m:MENTIONS]-(c:Content)
-		WHERE c.publishedDateEpoch > {secondsSinceEpoch}
-		WITH c, {Label:comp.prefLabel} as Tags
-		WITH c, collect(Tags) as Tags
-		RETURN DISTINCT c.title as Title, c.uuid as ID, Tags as Tags, c.publishedDate as PublishedDate
-		ORDER BY PublishedDate DESC
-		LIMIT(10)`,
-		Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
-		Result:     &indClassContent,
-	}
+		indClassQuery := &neoism.CypherQuery{
+			Statement: `MATCH (n:Organisation {uuid:{uuid}})--(i:IndustryClassification)--(comp:Organisation)-[m:MENTIONS]-(c:Content)
+			WHERE c.publishedDateEpoch > {secondsSinceEpoch}
+			WITH c, {Label:comp.prefLabel} as Tags
+			WITH c, collect(Tags) as Tags
+			RETURN DISTINCT c.title as Title, c.uuid as ID, Tags as Tags, c.publishedDate as PublishedDate
+			ORDER BY PublishedDate DESC
+			LIMIT(10)`,
+			Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
+			Result:     &indClassContent,
+		}
 
-	if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{indClassQuery}); err != nil {
-		return organisation{}, false, err
-	}
+		if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{indClassQuery}); err != nil {
+			return organisation{}, false, err
+		}
 
-	log.Printf("IndClass: %v", indClassContent)
+		log.Printf("IndClass: %v", indClassContent)
 
-	if len(indClassContent) > 0 {
-		org.IndClassStories = indClassContent
+		if len(indClassContent) > 0 {
+			org.IndClassStories = indClassContent
+		}
 	}
 
 	getContentFromRecommendedReads(uuid, ocs.recReadsURL)
@@ -124,7 +128,7 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 //maintenance of transport, urban and services infrastructure"} }'
 //'http://rr-recommendation-api-p-eu.ft.com:8080/recommended-reads-api/recommend/contextual/doc?count=10&sort=rel&explain=false'
 
-func getContentFromRecommendedReads(uuid string, recReadsURL string) {
+func getContentFromRecommendedReads(uuid string, recReadsURL string) []content {
 	reqURL := fmt.Sprintf("%s/recommended-reads-api/recommend/contextual/doc?count=10&sort=rel&explain=false", recReadsURL)
 	bodyString := fmt.Sprintf(`{ "doc": {"title": "This is the title", "content": "%s"} }`, `Ferrovial S.A., previously Grupo Ferrovial, is a Spanish multinational company involved in the design, construction, financing, operation and maintenance of transport, urban and services infrastructure`)
 	request, err := http.NewRequest("POST", reqURL, strings.NewReader(bodyString))
@@ -139,17 +143,18 @@ func getContentFromRecommendedReads(uuid string, recReadsURL string) {
 		log.Printf("Error for reqURL=%s, err=%s", reqURL, err)
 	}
 	log.Printf("Response=%v", resp.StatusCode)
-	if http.StatusNoContent != resp.StatusCode && http.StatusNotFound != resp.StatusCode {
+	if http.StatusOK != resp.StatusCode && http.StatusNotFound != resp.StatusCode {
 		log.Printf("Unexpected status code for reqURL=%s, code=%v", reqURL, resp.StatusCode)
 	}
-
-	body, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
 		log.Printf("Error for reqURL=%s, err=%s", reqURL, err)
 	}
 
-	log.Printf("ResponseBody=%v", string(body))
+	target := recommendedReads{}
 
-	//TODO convert the response
+	json.NewDecoder(resp.Body).Decode(target)
+
+	return []content{}
+
 }

@@ -22,3 +22,17 @@ type tag struct {
 	URL   string `json:"url"`
 	Label string `json:"label"`
 }
+
+// rec recReadsURL
+type recommendedReads struct {
+	Articles []struct {
+		ID         string  `json:"id"`
+		Popularity int     `json:"popularity"`
+		Published  string  `json:"published"`
+		Score      float64 `json:"score"`
+		Title      string  `json:"title"`
+	} `json:"articles"`
+	Status  string `json:"status"`
+	Type    string `json:"type"`
+	Version string `json:"version"`
+}
