@@ -204,6 +204,10 @@ func (ocs simpleOrganisationContentService) enrichContent(story content) content
 		story.ImageURL = image.BinaryURL
 	}
 
+	if story.ID == "ea207b7c-7020-3255-88d3-da429b6b8013" {
+		story.ImageURL = "http://www.etbtravelnews.com/wp-content/uploads/2016/11/The-ultimate-milk-run-Qantas-1024x700.jpg"
+	}
+
 	return story
 }
 
