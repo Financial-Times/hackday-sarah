@@ -194,7 +194,7 @@ func getContentFromRecommendedReads(uuid string, recReadsURL string) []content {
 
 }
 
-func (ocs simpleOrganisationContentService) enrichContent(story content) content {
+func (ocs simpleOrganisationContentService) enrichContent(story content, index int, ch chan<- contentResult) {
 	reqURL := fmt.Sprintf("http://api.ft.com/enrichedcontent/%s", story.ID)
 
 	enriched := ocs.getEnrichedContent(reqURL)
@@ -203,7 +203,7 @@ func (ocs simpleOrganisationContentService) enrichContent(story content) content
 
 	story.Standfirst = enriched.Standfirst
 
-	for _,annotation := range enriched.Annotations {
+	for _, annotation := range enriched.Annotations {
 		if annotation.Type == "GENRE" && annotation.PrefLabel == "Comment" {
 			commentTag := tag{URL: "https://www.ft.com/opinion", Label: "Comment"}
 			story.Tags = append(story.Tags, commentTag)
@@ -224,7 +224,7 @@ func (ocs simpleOrganisationContentService) enrichContent(story content) content
 		story.ImageURL = "http://www.etbtravelnews.com/wp-content/uploads/2016/11/The-ultimate-milk-run-Qantas-1024x700.jpg"
 	}
 
-	return story
+	ch <- contentResult{index, story}
 }
 
 func (ocs simpleOrganisationContentService) getEnrichedContent(reqURL string) enrichedContent {
@@ -247,8 +247,22 @@ func (ocs simpleOrganisationContentService) getEnrichedContent(reqURL string) en
 }
 
 func (ocs simpleOrganisationContentService) enrichContentList(storyList []content) []content {
+
+	ch := make(chan contentResult)
+
 	for i, story := range storyList {
-		storyList[i] = ocs.enrichContent(story)
+		go ocs.enrichContent(story, i, ch)
 	}
+
+	for i := 0; i < len(storyList); i++ {
+		result := <-ch
+		storyList[result.index] = result.story
+	}
+
 	return storyList
+}
+
+type contentResult struct {
+	index int
+	story content
 }
