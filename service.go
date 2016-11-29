@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Financial-Times/neo-utils-go/neoutils"
@@ -14,11 +17,12 @@ type organisationContentService interface {
 }
 
 type simpleOrganisationContentService struct {
-	conn neoutils.NeoConnection
+	conn        neoutils.NeoConnection
+	recReadsURL string
 }
 
-func newOrganisationContentService(conn neoutils.NeoConnection) simpleOrganisationContentService {
-	return simpleOrganisationContentService{conn}
+func newOrganisationContentService(conn neoutils.NeoConnection, recReadsURL string) simpleOrganisationContentService {
+	return simpleOrganisationContentService{conn, recReadsURL}
 }
 
 func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid string) (organisation, bool, error) {
@@ -108,6 +112,44 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		org.IndClassStories = indClassContent
 	}
 
+	getContentFromRecommendedReads(uuid, ocs.recReadsURL)
+
 	return org, true, nil
 
+}
+
+//curl -X POST --header 'Content-Type: application/json' --header 'Accept: application/json'
+//-d '{ "doc": {"title": "This is the title", "content": "Ferrovial S.A., previously Grupo Ferrovial,
+//is a Spanish multinational company involved in the design, construction, financing, operation and
+//maintenance of transport, urban and services infrastructure"} }'
+//'http://rr-recommendation-api-p-eu.ft.com:8080/recommended-reads-api/recommend/contextual/doc?count=10&sort=rel&explain=false'
+
+func getContentFromRecommendedReads(uuid string, recReadsURL string) {
+	reqURL := fmt.Sprintf("%s/recommended-reads-api/recommend/contextual/doc?count=10&sort=rel&explain=false", recReadsURL)
+	bodyString := fmt.Sprintf(`{ "doc": {"title": "This is the title", "content": "%s"} }`, `Ferrovial S.A., previously Grupo Ferrovial, is a Spanish multinational company involved in the design, construction, financing, operation and maintenance of transport, urban and services infrastructure`)
+	request, err := http.NewRequest("POST", reqURL, strings.NewReader(bodyString))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+	if err != nil {
+		log.Printf("Could not create request for reqURL=%s, err=%s", reqURL, err)
+	}
+	resp, err := httpClient.Do(request)
+	defer resp.Body.Close()
+	if err != nil {
+		log.Printf("Error for reqURL=%s, err=%s", reqURL, err)
+	}
+	log.Printf("Response=%v", resp.StatusCode)
+	if http.StatusNoContent != resp.StatusCode && http.StatusNotFound != resp.StatusCode {
+		log.Printf("Unexpected status code for reqURL=%s, code=%v", reqURL, resp.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		log.Printf("Error for reqURL=%s, err=%s", reqURL, err)
+	}
+
+	log.Printf("ResponseBody=%v", string(body))
+
+	//TODO convert the response
 }

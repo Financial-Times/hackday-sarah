@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -10,6 +11,16 @@ import (
 	"github.com/Financial-Times/neo-utils-go/neoutils"
 	"github.com/gorilla/mux"
 )
+
+var httpClient = http.Client{
+	Transport: &http.Transport{
+		MaxIdleConnsPerHost: 128,
+		Dial: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+	},
+}
 
 func main() {
 	port := os.Getenv("PORT")
@@ -31,6 +42,14 @@ func main() {
 		log.Fatal("$NEO4J_URL must be set")
 	}
 
+	recReadsURL := os.Getenv("REC_READS_URL")
+
+	log.Printf("recReadsURL=%s", recReadsURL)
+
+	if recReadsURL == "" {
+		log.Fatal("$REC_READS_URL must be set")
+	}
+
 	conf := neoutils.ConnectionConfig{
 		BatchSize:     1024,
 		Transactional: false,
@@ -48,7 +67,7 @@ func main() {
 		log.Fatalf("Error connecting to neo4j %s", err)
 	}
 
-	och := organisationContentHandler{newOrganisationContentService(db)}
+	och := organisationContentHandler{newOrganisationContentService(db, recReadsURL)}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/organisations/{uuid}", och.getContentRelatedToOrganisation).Methods("GET")
