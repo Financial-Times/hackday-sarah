@@ -134,6 +134,12 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 			org.RecommendedReadsStories = ocs.enrichContentList(recReadsStories)
 		}
 
+		description, found := descMap[uuid]
+
+		if found {
+			org.Description = description
+		}
+
 		resultsMap[uuid] = org
 		log.Printf("Cached org %s", uuid)
 
