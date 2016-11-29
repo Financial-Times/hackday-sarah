@@ -71,6 +71,10 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		org.Stories = results[0].Stories
 	}
 
+	for i,story := range org.Stories {
+		org.Stories[i] = ocs.enrichContent(story)
+	}
+
 	subsidContent := []content{}
 
 	subsidQuery := &neoism.CypherQuery{
@@ -180,4 +184,25 @@ func getContentFromRecommendedReads(uuid string, recReadsURL string) []content {
 
 	return contList
 
+}
+
+func (ocs simpleOrganisationContentService) enrichContent(story content) content{
+	reqURL := fmt.Sprintf("http://api.ft.com/enrichedcontent/%s", story.ID)
+	request, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		log.Printf("Could not create request for reqURL=%s, err=%s", reqURL, err)
+	}
+	request.Header.Set("X-Api-Key", ocs.apiKey)
+	resp, err := httpClient.Do(request)
+	defer resp.Body.Close()
+	if err != nil {
+		log.Printf("Error for reqURL=%s, err=%s", reqURL, err)
+	}
+
+	enriched := enrichedContent{}
+
+	json.NewDecoder(resp.Body).Decode(&enriched)
+
+	story.Standfirst = enriched.Standfirst
+	return story
 }
