@@ -14,6 +14,8 @@ import (
 
 var descMap = map[string]string{
 	"a14bcf4b-556d-31a6-8bbc-3d53d0366999": "Agropur cooperative processes and distributes dairy products. Its products include industrial cheese, yogurt, and products associated with fluid milk.",
+	"296db2c2-2c98-3e47-8e2a-e85bdfc1beae": "Ferrovial, S.A. , previously Grupo Ferrovial, is a Spanish multinational company involved in the design, construction, financing, operation (DBFO) and maintenance of transport, urban and services infrastructure.",
+	"013f7fa7-aa26-3e20-84f1-fb8e5f7383ff": "Barclays is a British multinational banking and financial services company headquartered in London.",
 }
 
 type organisationContentService interface {
@@ -68,7 +70,7 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 	}
 
 	if len(results[0].Stories) > 0 && results[0].Stories[0].ID != "" {
-		org.Stories = ocs.enrichContentList(results[0].Stories)
+		org.Stories = ocs.enrichContentList(results[0].Stories[0:5])
 	}
 
 	subsidContent := []content{}
@@ -79,7 +81,8 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		WHERE c.publishedDateEpoch > {secondsSinceEpoch}
 		WITH c, {Label:s.prefLabel} as Tags
 		WITH c, collect(Tags) as Tags
-		RETURN c.title as Title, c.uuid as ID, Tags as Tags, c.publishedDate as PublishedDate`,
+		RETURN c.title as Title, c.uuid as ID, Tags as Tags, c.publishedDate as PublishedDate
+		LIMIT(5)`,
 		Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
 		Result:     &subsidContent,
 	}
@@ -104,7 +107,7 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 			WITH c, collect(Tags) as Tags
 			RETURN DISTINCT c.title as Title, c.uuid as ID, Tags as Tags, c.publishedDate as PublishedDate
 			ORDER BY PublishedDate DESC
-			LIMIT(10)`,
+			LIMIT(5)`,
 			Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
 			Result:     &indClassContent,
 		}
@@ -140,7 +143,7 @@ func getContentFromRecommendedReads(uuid string, recReadsURL string) []content {
 
 	log.Printf("Description=%s", desc)
 
-	reqURL := fmt.Sprintf("%s/recommended-reads-api/recommend/contextual/doc?count=10&sort=rel&explain=false", recReadsURL)
+	reqURL := fmt.Sprintf("%s/recommended-reads-api/recommend/contextual/doc?count=5&sort=rel&explain=false", recReadsURL)
 	bodyString := fmt.Sprintf(`{ "doc": {"title": "This is the title", "content": "%s"} }`, desc)
 	request, err := http.NewRequest("POST", reqURL, strings.NewReader(bodyString))
 	request.Header.Set("Content-Type", "application/json")
@@ -193,14 +196,11 @@ func (ocs simpleOrganisationContentService) enrichContent(story content) content
 
 	// get the image
 	if enriched.MainImage.ID != "" {
-		log.Printf("ImageSet ID=%s", enriched.MainImage.ID)
 		imageSet := ocs.getEnrichedContent(enriched.MainImage.ID)
 
 		members := imageSet.Members
 
-		log.Printf("ImageSet ID=%s", members[0].ID)
 		image := ocs.getEnrichedContent(members[0].ID)
-		log.Printf("BinaryURL=%s", image.BinaryURL)
 		story.ImageURL = image.BinaryURL
 	}
 
