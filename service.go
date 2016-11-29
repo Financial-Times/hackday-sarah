@@ -18,6 +18,8 @@ var descMap = map[string]string{
 	"013f7fa7-aa26-3e20-84f1-fb8e5f7383ff": "Barclays is a British multinational banking and financial services company headquartered in London.",
 }
 
+var resultsMap = map[string]organisation{}
+
 type organisationContentService interface {
 	getContentByOrganisationUUID(uuid string) (organisation, bool, error)
 }
@@ -34,103 +36,110 @@ func newOrganisationContentService(conn neoutils.NeoConnection, recReadsURL stri
 
 func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid string) (organisation, bool, error) {
 
-	results := []organisation{}
+	org, found := resultsMap[uuid]
 
-	now := time.Now()
+	if !found {
+		results := []organisation{}
 
-	threeMonthsAgo := now.AddDate(0, -3, 0)
+		now := time.Now()
 
-	secondsSinceEpoch := threeMonthsAgo.Unix()
+		threeMonthsAgo := now.AddDate(0, -3, 0)
 
-	query := &neoism.CypherQuery{
-		Statement: `
-		MATCH (o:Organisation {uuid:{uuid}})
-		OPTIONAL MATCH (o)--(i:IndustryClassification)
-    OPTIONAL MATCH (o)-[:MENTIONS]-(c:Content)
-    WHERE c.publishedDateEpoch > {secondsSinceEpoch}
-    WITH o, i, {Title:c.title, ID:c.uuid, PublishedDate:c.publishedDate} as stories
-    WITH o, i, collect(stories) as stories
-    RETURN o.prefLabel as Title, i.prefLabel as IndustryClassification, stories as Stories, o.uuid as ID`,
-		Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
-		Result:     &results,
-	}
+		secondsSinceEpoch := threeMonthsAgo.Unix()
 
-	if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{query}); err != nil {
-		return organisation{}, false, err
-	} else if len(results) == 0 {
-		errMsg := fmt.Sprintf("No organisation found for uuid:%s", uuid)
-		log.Print(errMsg)
-		return organisation{}, false, nil
-	}
-
-	org := organisation{
-		Title: results[0].Title,
-		IndustryClassification: results[0].IndustryClassification,
-		ID: results[0].ID,
-	}
-
-	if len(results[0].Stories) > 0 && results[0].Stories[0].ID != "" {
-		org.Stories = ocs.enrichContentList(results[0].Stories[0:5])
-	}
-
-	subsidContent := []content{}
-
-	subsidQuery := &neoism.CypherQuery{
-		Statement: `
-		MATCH (n:Organisation {uuid:{uuid}})-[:SUB_ORGANISATION_OF]-(s:Organisation)-[:MENTIONS]-(c:Content)
-		WHERE c.publishedDateEpoch > {secondsSinceEpoch}
-		WITH c, {Label:s.prefLabel} as Tags
-		WITH c, collect(Tags) as Tags
-		RETURN c.title as Title, c.uuid as ID, Tags as Tags, c.publishedDate as PublishedDate
-		LIMIT(5)`,
-		Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
-		Result:     &subsidContent,
-	}
-
-	if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{subsidQuery}); err != nil {
-		return organisation{}, false, err
-	}
-
-	log.Printf("Subsids: %v", subsidContent)
-
-	if len(subsidContent) > 0 {
-		org.SubsidStories = ocs.enrichContentList(subsidContent)
-	}
-
-	if org.IndustryClassification != "" {
-		indClassContent := []content{}
-
-		indClassQuery := &neoism.CypherQuery{
-			Statement: `MATCH (n:Organisation {uuid:{uuid}})--(i:IndustryClassification)--(comp:Organisation)-[m:MENTIONS]-(c:Content)
-			WHERE c.publishedDateEpoch > {secondsSinceEpoch}
-			WITH c, {Label:comp.prefLabel} as Tags
-			WITH c, collect(Tags) as Tags
-			RETURN DISTINCT c.title as Title, c.uuid as ID, Tags as Tags, c.publishedDate as PublishedDate
-			ORDER BY PublishedDate DESC
-			LIMIT(5)`,
+		query := &neoism.CypherQuery{
+			Statement: `
+			MATCH (o:Organisation {uuid:{uuid}})
+			OPTIONAL MATCH (o)--(i:IndustryClassification)
+	    OPTIONAL MATCH (o)-[:MENTIONS]-(c:Content)
+	    WHERE c.publishedDateEpoch > {secondsSinceEpoch}
+	    WITH o, i, {Title:c.title, ID:c.uuid, PublishedDate:c.publishedDate} as stories
+	    WITH o, i, collect(stories) as stories
+	    RETURN o.prefLabel as Title, i.prefLabel as IndustryClassification, stories as Stories, o.uuid as ID`,
 			Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
-			Result:     &indClassContent,
+			Result:     &results,
 		}
 
-		if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{indClassQuery}); err != nil {
+		if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{query}); err != nil {
+			return organisation{}, false, err
+		} else if len(results) == 0 {
+			errMsg := fmt.Sprintf("No organisation found for uuid:%s", uuid)
+			log.Print(errMsg)
+			return organisation{}, false, nil
+		}
+
+		org = organisation{
+			Title: results[0].Title,
+			IndustryClassification: results[0].IndustryClassification,
+			ID: results[0].ID,
+		}
+
+		if len(results[0].Stories) > 0 && results[0].Stories[0].ID != "" {
+			org.Stories = ocs.enrichContentList(results[0].Stories[0:5])
+		}
+
+		subsidContent := []content{}
+
+		subsidQuery := &neoism.CypherQuery{
+			Statement: `
+			MATCH (n:Organisation {uuid:{uuid}})-[:SUB_ORGANISATION_OF]-(s:Organisation)-[:MENTIONS]-(c:Content)
+			WHERE c.publishedDateEpoch > {secondsSinceEpoch}
+			WITH c, {Label:s.prefLabel} as Tags
+			WITH c, collect(Tags) as Tags
+			RETURN c.title as Title, c.uuid as ID, Tags as Tags, c.publishedDate as PublishedDate
+			LIMIT(5)`,
+			Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
+			Result:     &subsidContent,
+		}
+
+		if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{subsidQuery}); err != nil {
 			return organisation{}, false, err
 		}
 
-		log.Printf("IndClass: %v", indClassContent)
+		log.Printf("Subsids: %v", subsidContent)
 
-		if len(indClassContent) > 0 {
-			org.IndClassStories = ocs.enrichContentList(indClassContent)
+		if len(subsidContent) > 0 {
+			org.SubsidStories = ocs.enrichContentList(subsidContent)
 		}
-	}
 
-	recReadsStories := getContentFromRecommendedReads(uuid, ocs.recReadsURL)
+		if org.IndustryClassification != "" {
+			indClassContent := []content{}
 
-	if len(recReadsStories) > 0 {
-		org.RecommendedReadsStories = ocs.enrichContentList(recReadsStories)
+			indClassQuery := &neoism.CypherQuery{
+				Statement: `MATCH (n:Organisation {uuid:{uuid}})--(i:IndustryClassification)--(comp:Organisation)-[m:MENTIONS]-(c:Content)
+				WHERE c.publishedDateEpoch > {secondsSinceEpoch}
+				WITH c, {Label:comp.prefLabel} as Tags
+				WITH c, collect(Tags) as Tags
+				RETURN DISTINCT c.title as Title, c.uuid as ID, Tags as Tags, c.publishedDate as PublishedDate
+				ORDER BY PublishedDate DESC
+				LIMIT(5)`,
+				Parameters: neoism.Props{"uuid": uuid, "secondsSinceEpoch": secondsSinceEpoch},
+				Result:     &indClassContent,
+			}
+
+			if err := ocs.conn.CypherBatch([]*neoism.CypherQuery{indClassQuery}); err != nil {
+				return organisation{}, false, err
+			}
+
+			log.Printf("IndClass: %v", indClassContent)
+
+			if len(indClassContent) > 0 {
+				org.IndClassStories = ocs.enrichContentList(indClassContent)
+			}
+		}
+
+		recReadsStories := getContentFromRecommendedReads(uuid, ocs.recReadsURL)
+
+		if len(recReadsStories) > 0 {
+			org.RecommendedReadsStories = ocs.enrichContentList(recReadsStories)
+		}
+
+		resultsMap[uuid] = org
+		log.Printf("Cached org %s", uuid)
+
 	}
 
 	return org, true, nil
-
 }
 
 func getContentFromRecommendedReads(uuid string, recReadsURL string) []content {
