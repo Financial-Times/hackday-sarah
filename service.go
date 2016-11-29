@@ -68,11 +68,7 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 	}
 
 	if len(results[0].Stories) > 0 && results[0].Stories[0].ID != "" {
-		org.Stories = results[0].Stories
-	}
-
-	for i,story := range org.Stories {
-		org.Stories[i] = ocs.enrichContent(story)
+		org.Stories = ocs.enrichContentList(results[0].Stories)
 	}
 
 	subsidContent := []content{}
@@ -95,7 +91,7 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 	log.Printf("Subsids: %v", subsidContent)
 
 	if len(subsidContent) > 0 {
-		org.SubsidStories = subsidContent
+		org.SubsidStories = ocs.enrichContentList(subsidContent)
 	}
 
 	if org.IndustryClassification != "" {
@@ -120,7 +116,7 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		log.Printf("IndClass: %v", indClassContent)
 
 		if len(indClassContent) > 0 {
-			org.IndClassStories = indClassContent
+			org.IndClassStories = ocs.enrichContentList(indClassContent)
 		}
 	}
 
@@ -205,4 +201,11 @@ func (ocs simpleOrganisationContentService) enrichContent(story content) content
 
 	story.Standfirst = enriched.Standfirst
 	return story
+}
+
+func (ocs simpleOrganisationContentService) enrichContentList(storyList []content) []content{
+	for i,story := range storyList {
+		storyList[i] = ocs.enrichContent(story)
+	}
+	return storyList
 }
