@@ -12,6 +12,10 @@ import (
 	"github.com/jmcvetta/neoism"
 )
 
+var descMap = map[string]string{
+	"a14bcf4b-556d-31a6-8bbc-3d53d0366999": "Agropur cooperative processes and distributes dairy products. Its products include industrial cheese, yogurt, and products associated with fluid milk.",
+}
+
 type organisationContentService interface {
 	getContentByOrganisationUUID(uuid string) (organisation, bool, error)
 }
@@ -116,21 +120,28 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 		}
 	}
 
-	getContentFromRecommendedReads(uuid, ocs.recReadsURL)
+	recReadsStories := getContentFromRecommendedReads(uuid, ocs.recReadsURL)
+
+	if len(recReadsStories) > 0 {
+		org.RecommendedReadsStories = recReadsStories
+	}
 
 	return org, true, nil
 
 }
 
-//curl -X POST --header 'Content-Type: application/json' --header 'Accept: application/json'
-//-d '{ "doc": {"title": "This is the title", "content": "Ferrovial S.A., previously Grupo Ferrovial,
-//is a Spanish multinational company involved in the design, construction, financing, operation and
-//maintenance of transport, urban and services infrastructure"} }'
-//'http://rr-recommendation-api-p-eu.ft.com:8080/recommended-reads-api/recommend/contextual/doc?count=10&sort=rel&explain=false'
-
 func getContentFromRecommendedReads(uuid string, recReadsURL string) []content {
+	desc, found := descMap[uuid]
+
+	if !found {
+		log.Printf("No description found for uuid=%s", uuid)
+		return []content{}
+	}
+
+	log.Printf("Description=%s", desc)
+
 	reqURL := fmt.Sprintf("%s/recommended-reads-api/recommend/contextual/doc?count=10&sort=rel&explain=false", recReadsURL)
-	bodyString := fmt.Sprintf(`{ "doc": {"title": "This is the title", "content": "%s"} }`, `Ferrovial S.A., previously Grupo Ferrovial, is a Spanish multinational company involved in the design, construction, financing, operation and maintenance of transport, urban and services infrastructure`)
+	bodyString := fmt.Sprintf(`{ "doc": {"title": "This is the title", "content": "%s"} }`, desc)
 	request, err := http.NewRequest("POST", reqURL, strings.NewReader(bodyString))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept", "application/json")
@@ -153,8 +164,20 @@ func getContentFromRecommendedReads(uuid string, recReadsURL string) []content {
 
 	target := recommendedReads{}
 
-	json.NewDecoder(resp.Body).Decode(target)
+	json.NewDecoder(resp.Body).Decode(&target)
 
-	return []content{}
+	contList := []content{}
+
+	for _, art := range target.Articles {
+		cont := content{
+			Title: art.Title,
+			ID:    art.ID,
+		}
+		contList = append(contList, cont)
+	}
+
+	log.Printf("RecommendedReads stories=%s", contList)
+
+	return contList
 
 }
