@@ -123,7 +123,7 @@ func (ocs simpleOrganisationContentService) getContentByOrganisationUUID(uuid st
 	recReadsStories := getContentFromRecommendedReads(uuid, ocs.recReadsURL)
 
 	if len(recReadsStories) > 0 {
-		org.RecommendedReadsStories = recReadsStories
+		org.RecommendedReadsStories = ocs.enrichContentList(recReadsStories)
 	}
 
 	return org, true, nil
